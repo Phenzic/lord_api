@@ -2,7 +2,6 @@ from flask import Blueprint, Flask, request, jsonify
 from flask_jwt_extended import  JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from pymongo import MongoClient
 from .mongo_app import user_uri, vault_uri
-from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 import os
 import binascii
 import hmac
