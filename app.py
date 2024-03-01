@@ -1,7 +1,7 @@
 from flask import Blueprint, Flask, request, jsonify
 from flask_jwt_extended import  JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from pymongo import MongoClient
-from .mongo_app import user_uri, vault_uri
+from mongo_app import user_uri, vault_uri
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 import os
 import binascii
@@ -62,7 +62,7 @@ def create_sandbox_key():
     # Generate a new secret key and its signature
     secret_key, secret_signature = hmac_helper.generate_key()
 
-    print(api_key, api_signature, secret_key, secret_signature)
+    # print(api_key, api_signature, secret_key, secret_signature)
 
     # Assuming the creator is the user's id in the MongoDB database
     user_id = creator
@@ -93,14 +93,13 @@ def create_live_key():
     key = os.getenv("API_LIVE_KEY")
     hmac_helper = HMACHelper(key)
 
-    print(sandbox_db)
     # Generate a new API key and its signature
     api_key, api_signature = hmac_helper.generate_key()
 
     # Generate a new secret key and its signature
     secret_key, secret_signature = hmac_helper.generate_key()
 
-    print(api_key, api_signature, secret_key, secret_signature)
+    # print(api_key, api_signature, secret_key, secret_signature)
 
     # Assuming the creator is the user's id in the MongoDB database
     user_id = creator
@@ -115,11 +114,10 @@ def create_live_key():
 
     # Repeat the same process for the sandbox collection
         api_user = sandbox_db.find_one({'id': user_id})
-        print(api_user)
+        # print(api_user)
         if api_user:
             sandbox_db.update_one({'id': user_id}, {'$push': {'live_keys': {'key': api_key, 'secret': secret_key}}})
         else:
-            print("deluluuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu")
             sandbox_db.insert_one({'id': user_id, 'live_keys': [{'key': api_key, 'secret': secret_key}]})
 
         return jsonify({'status': 'API key and secret key created and stored successfully', "api_key": api_key, "secret_key": secret_key}), 201
@@ -127,11 +125,72 @@ def create_live_key():
     return jsonify({'status': 'User not found'}), 404
 
 
-
-@sandbox_api.route('/delete_sandbox_key', methods=['POST'])
+@sandbox_api.route("/delete_sandbox_api", methods=["POST"])
 @jwt_required()
-def create_api_key():
+def delete_sandbox_key():
     creator = get_jwt_identity()
+    # Get the API key and secret key from the request payload
+    payload = request.get_json()
+    api_key = payload.get('api_key')
+    secret_key = payload.get('secret_key')
+
+    # Assuming the creator is the user's id in the MongoDB database
+    user_id = creator
+    user = sandbox_db.find_one({'id': user_id})
+    print(user)
+    if user:
+        # user.update_one({'id': user_id}, {'$pull': {'sandbox_keys': {'key': api_key, 'secret': secret_key},}}})
+        # Check if the key pair exists in the user's document
+        if any(key_pair for key_pair in user['sandbox_keys'] if {key_pair['key'] == api_key, key_pair['secret'] == secret_key}): #or \
+        # any(key_pair for key_pair in user['live_keys'] if key_pair['key'] == api_key and key_pair['secret'] == secret_key):
+            # Remove the API key and secret key from the user's document
+
+            result = sandbox_db.update_one({'id': user_id}, {'$pull': {'sandbox_keys': {'key': api_key, 'secret': secret_key}}})
+            if result.modified_count > 0:
+                return jsonify({'status': 'API key and secret key deleted successfully'}), 200
+            else:
+                return jsonify({'status': 'No keys were deleted'}), 400
+        else:
+            return jsonify({'status': 'Key pair not found'}), 404
+    else:
+        return jsonify({'status': 'User not found'}),
+
+
+
+@sandbox_api.route("/delete_live_api", methods=["POST"])
+@jwt_required()
+def delete_api_key():
+    creator = get_jwt_identity()
+    # Get the API key and secret key from the request payload
+    payload = request.get_json()
+    api_key = payload.get('api_key')
+    secret_key = payload.get('secret_key')
+
+    # Assuming the creator is the user's id in the MongoDB database
+    user_id = creator
+    user = sandbox_db.find_one({'id': user_id})
+    user_id = creator
+    user = sandbox_db.find_one({'id': user_id})
+
+    if user:
+        # Check if the key pair exists in the user's document
+        if any(key_pair for key_pair in user['live_keys'] if key_pair['key'] == api_key and key_pair['secret'] == secret_key):
+            # Remove the API key and secret key from the user's document
+            sandbox_db.update_one({'id': user_id}, {'$pull': {'api_keys': {'key': api_key, 'secret': secret_key}}})
+            return jsonify({'status': 'API key and secret key deleted successfully'}), 200
+        else:
+            return jsonify({'status': 'Key pair not found'}), 404
+    else:
+        return jsonify({'status': 'User not found'}), 404
+    
+
+
+
+
+# @sandbox_api.route('/delete_live_key', methods=['POST'])
+# @jwt_required()
+# def create_api_key():
+#     creator = get_jwt_identity()
 
 
 
