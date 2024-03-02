@@ -6,7 +6,6 @@ import os
 import binascii
 import hmac
 import hashlib
-from cryptography.fernet import Fernet
 
  
 user_client = MongoClient(user_uri)
